@@ -41,6 +41,27 @@ jobs:
           name: ai-chat-apk
           path: out/ai-chat.apk
 
+      # 国内网络直下：推到 Supabase Storage（公开 bucket）
+      # 想更安全可以在仓库 Settings -> Secrets 里加 SUPABASE_SERVICE_KEY，这里会自动优先用它
+      - name: Upload to Supabase Storage
+        run: |
+          SB="https://xkqqryvwwocnrzwgirje.supabase.co"
+          KEY="${{ secrets.SUPABASE_SERVICE_KEY }}"
+          if [ -z "$KEY" ]; then
+            KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhrcXFyeXZ3d29jbnJ6d2dpcmplIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjA5ODQ3NywiZXhwIjoyMTAxNjc0NDc3fQ.dI1_GJtA919bc1n6NqHY9m0OmV66WM0kJokLOkrAOEY"
+          fi
+          curl -s -X POST "$SB/storage/v1/bucket" \
+            -H "Authorization: Bearer $KEY" -H "apikey: $KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"id":"apk","name":"apk","public":true}' > /dev/null || true
+          curl -s -X POST "$SB/storage/v1/object/apk/ai-chat.apk" \
+            -H "Authorization: Bearer $KEY" -H "apikey: $KEY" \
+            -H "Content-Type: application/vnd.android.package-archive" \
+            -H "x-upsert: true" \
+            --data-binary @out/ai-chat.apk \
+            -o /dev/null -w "supabase upload http=%{http_code}\n"
+          echo "::notice::APK 直链: $SB/storage/v1/object/public/apk/ai-chat.apk"
+
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
