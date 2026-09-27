@@ -4964,7 +4964,10 @@ ${recent||'（暂无）'}`;try{const resp=await fetch(provider.baseURL+"/chat/co
                 const blob = new Blob([JSON.stringify(allData)], { type: 'application/json' });
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(blob);
-                a.download = 'ai-chat-backup-' + Date.now() + '.json';
+                var _d = new Date();
+                var _p = function (n) { return (n < 10 ? '0' : '') + n; };
+                var _stamp = _d.getFullYear() + _p(_d.getMonth() + 1) + _p(_d.getDate()) + '-' + _p(_d.getHours()) + _p(_d.getMinutes());
+                a.download = 'AIChat备份_' + _stamp + '.json';
                 a.click();
                 setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
                 toast('已导出 ♡（含图片 ' + count + ' 张）');
