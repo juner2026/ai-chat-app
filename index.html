@@ -4924,23 +4924,44 @@ ${recent||'（暂无）'}`;try{const resp=await fetch(provider.baseURL+"/chat/co
 
         // ========== 数据导出导入 ==========
         function exportData() {
-            const allData = {
-                apiProviders: DataManager.get('apiProviders'),
-                defaultProvider: DataManager.get('defaultProvider'),
-                mcpServices: DataManager.get('mcpServices'),
-                chats: DataManager.get('chats'),
-                moments: DataManager.get('moments'),
-                letters: DataManager.get('letters'),
-                settings: DataManager.get('settings'),
-                exportTime: Date.now()
-            };
-            const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `ai-chat-backup-${Date.now()}.json`;
-            a.click();
-            URL.revokeObjectURL(a.href);
-            toast('已导出 ♡');
+            try {
+                const allData = {
+                    apiProviders: DataManager.get('apiProviders'),
+                    defaultProvider: DataManager.get('defaultProvider'),
+                    mcpServices: DataManager.get('mcpServices'),
+                    chats: DataManager.get('chats'),
+                    moments: DataManager.get('moments'),
+                    letters: DataManager.get('letters'),
+                    settings: DataManager.get('settings'),
+                    theme: DataManager.get('theme'),
+                    themePresets: DataManager.get('themePresets'),
+                    worldbook: DataManager.get('worldbook'),
+                    memories: DataManager.get('memories'),
+                    memories2: DataManager.get('memories2'),
+                    exportTime: Date.now(),
+                    ver: 2
+                };
+                const big = {};
+                try {
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const k = localStorage.key(i);
+                        if (k && k.indexOf('lcc_big_') === 0) big[k.slice(8)] = localStorage.getItem(k);
+                    }
+                    const vi = localStorage.getItem('vinylImgs_v1');
+                    if (vi) big.__vinyl = vi;
+                } catch (eB) {}
+                allData.bigBlobs = big;
+                const count = Object.keys(big).length;
+                const blob = new Blob([JSON.stringify(allData)], { type: 'application/json' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'ai-chat-backup-' + Date.now() + '.json';
+                a.click();
+                setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+                toast('已导出 ♡（含图片 ' + count + ' 张）');
+            } catch (e) {
+                toast('导出失败：' + e.message);
+            }
         }
 
         function importData() {
@@ -4955,11 +4976,23 @@ ${recent||'（暂无）'}`;try{const resp=await fetch(provider.baseURL+"/chat/co
                     try {
                         const data = JSON.parse(ev.target.result);
                         uiConfirm('导入会覆盖当前所有数据，确定？', function () {
-                            ['apiProviders','defaultProvider','mcpServices','chats','moments','letters','settings'].forEach(k => {
+                            ['apiProviders','defaultProvider','mcpServices','chats','moments','letters','settings',
+                             'theme','themePresets','worldbook','memories','memories2'].forEach(k => {
                                 if (data[k] !== undefined) DataManager.set(k, data[k]);
                             });
-                            toast('导入成功，刷新页面…');
-                            setTimeout(() => location.reload(), 800);
+                            // 恢复所有大图
+                            let n = 0;
+                            if (data.bigBlobs) {
+                                Object.keys(data.bigBlobs).forEach(function (k) {
+                                    if (k === '__vinyl') {
+                                        try { localStorage.setItem('vinylImgs_v1', data.bigBlobs[k]); n++; return; } catch (eV) {}
+                                    }
+                                    try { localStorage.setItem('lcc_big_' + k, data.bigBlobs[k]); n++; } catch (eL) {}
+                                });
+                            }
+                            if (typeof window.applyCallWallpaper === 'function') { try { window.applyCallWallpaper(); } catch (eC) {} }
+                            toast('导入成功（含图片 ' + n + ' 张），刷新页面…');
+                            setTimeout(() => location.reload(), 900);
                         });
                     } catch (err) {
                         toast('文件格式错误');
