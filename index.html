@@ -10792,25 +10792,7 @@ window.onload = async function() {
 })();
 </script>
 
-<script>
-/* 详细错误钩子：把行号和消息直接显示出来 */
-window.addEventListener('error', function (e) {
-  try {
-    var msg = (e && (e.message || (e.error && e.error.message))) || 'unknown';
-    var line = (e && e.lineno) || 0;
-    var src = (e && e.filename) || '';
-    src = String(src).split('/').pop();
-    var el = document.getElementById('__errBar');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = '__errBar';
-      el.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99999;background:#B00020;color:#fff;font-size:12px;padding:7px 10px;white-space:pre-wrap;word-break:break-all';
-      document.body.appendChild(el);
-    }
-    el.textContent = 'ERR: ' + msg + ' | line ' + line + ' | ' + src;
-  } catch (x) {}
-}, true);
-</script>
+
 
 <div id="aichat-build-tag" style="position:fixed;right:8px;bottom:6px;z-index:9998;font-size:9.5px;color:rgba(0,0,0,.35);pointer-events:none;letter-spacing:.08em">build 0926-1753</div>
 </body>
