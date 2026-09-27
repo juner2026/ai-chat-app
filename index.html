@@ -4933,29 +4933,90 @@ ${recent||'（暂无）'}`;try{const resp=await fetch(provider.baseURL+"/chat/co
 
         // ========== 数据导出导入 ==========
         function exportData() {
-            try {
-                const allData = {
-                    apiProviders: DataManager.get('apiProviders'),
-                    defaultProvider: DataManager.get('defaultProvider'),
-                    mcpServices: DataManager.get('mcpServices'),
-                    chats: DataManager.get('chats'),
-                    moments: DataManager.get('moments'),
-                    letters: DataManager.get('letters'),
-                    settings: DataManager.get('settings'),
-                    theme: DataManager.get('theme'),
-                    themePresets: DataManager.get('themePresets'),
-                    worldbook: DataManager.get('worldbook'),
-                    memories: DataManager.get('memories'),
-                    memories2: DataManager.get('memories2'),
-                    exportTime: Date.now(),
-                    ver: 2
-                };
-                const big = {};
+            (async function () {
                 try {
-                    for (let i = 0; i < localStorage.length; i++) {
-                        const k = localStorage.key(i);
-                        if (k && k.indexOf('lcc_big_') === 0) big[k.slice(8)] = localStorage.getItem(k);
+                    // 1) 强制从 IndexedDB 重读大块数据（防止内存镜像是空的）
+                    var force = {};
+                    try {
+                        if (DataManager._idb) {
+                            for (var _ki = 0; _ki < DataManager._big.length; _ki++) {
+                                var _k = DataManager._big[_ki];
+                                var _v = await new Promise(function (res) {
+                                    try {
+                                        var rq = DataManager._idb.transaction('kv').objectStore('kv').get(_k);
+                                        rq.onsuccess = function () { res(rq.result); };
+                                        rq.onerror = function () { res(null); };
+                                    } catch (e) { res(null); }
+                                });
+                                if (_v && (typeof _v !== 'object' || (Array.isArray(_v) ? _v.length : Object.keys(_v).length))) {
+                                    DataManager._mem[_k] = _v;
+                                    force[_k] = true;
+                                }
+                            }
+                        }
+                    } catch (eF) {}
+
+                    var g = function (k) { try { return DataManager.get(k); } catch (e) { return null; } };
+                    var allData = {
+                        apiProviders: g('apiProviders'),
+                        defaultProvider: g('defaultProvider'),
+                        mcpServices: g('mcpServices'),
+                        chats: g('chats'),
+                        moments: g('moments'),
+                        letters: g('letters'),
+                        settings: g('settings'),
+                        theme: g('theme'),
+                        themePresets: g('themePresets'),
+                        worldbook: g('worldbook'),
+                        memories: g('memories'),
+                        memories2: g('memories2'),
+                        exportTime: Date.now(),
+                        ver: 3
+                    };
+                    // 2) 所有大图
+                    var big = {};
+                    try {
+                        for (var li = 0; li < localStorage.length; li++) {
+                            var k2 = localStorage.key(li);
+                            if (k2 && k2.indexOf('lcc_big_') === 0) big[k2.slice(8)] = localStorage.getItem(k2);
+                        }
+                        var vi = localStorage.getItem('vinylImgs_v1');
+                        if (vi) big.__vinyl = vi;
+                    } catch (eB) {}
+                    allData.bigBlobs = big;
+
+                    // 3) 打包前报告：哪块有多少东西
+                    var nChats = (allData.chats || []).length;
+                    var nMsgs = 0;
+                    (allData.chats || []).forEach(function (c) { nMsgs += ((c && c.messages) || []).length; });
+                    var nMom = (allData.moments || []).length;
+                    var nLet = (allData.letters || []).length;
+                    var nImg = Object.keys(big).length;
+                    var sizeKB = Math.round(JSON.stringify(allData).length / 1024);
+                    var sum = '聊天' + nChats + '对话/' + nMsgs + '条 · 动态' + nMom + ' · 信' + nLet + ' · 图' + nImg + ' · 共' + sizeKB + 'KB';
+                    console.log('[export]', sum, { forced: force });
+
+                    if (!nChats && !nMom && !nLet && !nImg) {
+                        toast('⚠️ 包里是空的——数据还没加载完，等几秒再点一次');
+                        return;
                     }
+                    if (!window.confirm('导出内容：' + sum + '。确定下载？')) return;
+
+                    var blob = new Blob([JSON.stringify(allData)], { type: 'application/json' });
+                    var a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    var _d = new Date();
+                    var _p = function (n) { return (n < 10 ? '0' : '') + n; };
+                    a.download = 'AIChat备份_' + _d.getFullYear() + _p(_d.getMonth() + 1) + _p(_d.getDate()) + '-' + _p(_d.getHours()) + _p(_d.getMinutes()) + '.json';
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 5000);
+                    toast('已导出 ♡ ' + sum);
+                } catch (e) {
+                    toast('导出失败：' + e.message);
+                }
+            })();
+        }
                     const vi = localStorage.getItem('vinylImgs_v1');
                     if (vi) big.__vinyl = vi;
                 } catch (eB) {}
@@ -5007,7 +5068,8 @@ ${recent||'（暂无）'}`;try{const resp=await fetch(provider.baseURL+"/chat/co
                             setTimeout(() => location.reload(), 900);
                         });
                     } catch (err) {
-                        toast('文件格式错误');
+                        toast('导入失败：' + (err && err.message ? err.message : '文件格式错误'));
+                        console.error('import fail', err, 'len=', (ev.target.result||'').length, 'head=', String(ev.target.result||'').slice(0,120));
                     }
                 };
                 reader.readAsText(file);
